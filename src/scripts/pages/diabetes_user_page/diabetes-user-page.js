@@ -151,26 +151,53 @@ export default class EncodingPage {
       }
     });
 
-    downloadBtn.addEventListener("click", async () => {
+   downloadBtn.addEventListener("click", async () => {
       const imageUrl = encodedImage.src;
-      if (!imageUrl) return;
-
+      if (!imageUrl || imageUrl.startsWith("data:")) return;
+    
       try {
-        const response = await fetch(imageUrl);
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = "Mengunduh...";
+        
+        // Tambahkan timestamp ke URL untuk menghindari cache
+        const uniqueUrl = imageUrl + (imageUrl.includes('?') ? '&' : '?' + 't=' + Date.now();
+        
+        const response = await fetch(uniqueUrl, {
+          mode: 'cors', // Coba dengan mode CORS
+          credentials: 'omit' // Tidak perlu mengirim credentials
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-
+    
         const a = document.createElement("a");
         a.href = url;
         a.download = `encoded_${
           localStorage.getItem("lastEncodedFilename") || "image.png"
         }`;
+        a.style.display = "none";
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        
+        // Bersihkan setelah 100ms untuk memastikan click diproses
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = "Download Gambar";
+        }, 100);
       } catch (error) {
+        console.error("Download error:", error);
         alert(`Gagal mengunduh gambar: ${error.message}`);
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = "Download Gambar";
+        
+        // Fallback: Buka di tab baru jika download gagal
+        window.open(imageUrl, '_blank');
       }
     });
   }
